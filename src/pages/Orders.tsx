@@ -1,17 +1,61 @@
 import React, { useState } from 'react';
-import { Search, Filter, Plus } from 'lucide-react';
-import { orders } from '../data/dummyData';
+import { Search, Filter, Plus, Edit } from 'lucide-react';
+import { orders, menuItems as defaultMenuItems } from '../data/dummyData';
+import AddOrderModal from '../components/AddOrderModal';
+import EditStatusModal from '../components/EditStatusModal';
+import { Order, OrderItem, MenuItem } from '../types';
 
-const Orders: React.FC = () => {
+interface OrdersProps {
+  menuItems?: MenuItem[];
+}
+
+const Orders: React.FC<OrdersProps> = ({ menuItems = defaultMenuItems }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('semua');
+  const [ordersList, setOrdersList] = useState(orders);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
-  const filteredOrders = orders.filter(order => {
+  const filteredOrders = ordersList.filter(order => {
     const matchesSearch = order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.tableNumber.toString().includes(searchTerm);
     const matchesStatus = statusFilter === 'semua' || order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+
+  const handleAddOrder = (orderData: {
+    tableNumber: number;
+    items: OrderItem[];
+    total: number;
+  }) => {
+    const newOrder: Order = {
+      id: (ordersList.length + 1).toString(),
+      orderNumber: `ORD-${String(ordersList.length + 1).padStart(3, '0')}`,
+      tableNumber: orderData.tableNumber,
+      items: orderData.items,
+      status: 'menunggu',
+      total: orderData.total,
+      timestamp: new Date()
+    };
+
+    setOrdersList(prev => [newOrder, ...prev]);
+  };
+
+  const handleEditStatus = (orderId: string, newStatus: Order['status']) => {
+    setOrdersList(prev => 
+      prev.map(order => 
+        order.id === orderId 
+          ? { ...order, status: newStatus }
+          : order
+      )
+    );
+  };
+
+  const openEditModal = (order: Order) => {
+    setSelectedOrder(order);
+    setIsEditModalOpen(true);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -31,11 +75,11 @@ const Orders: React.FC = () => {
   };
 
   const statusCounts = {
-    semua: orders.length,
-    menunggu: orders.filter(o => o.status === 'menunggu').length,
-    dimasak: orders.filter(o => o.status === 'dimasak').length,
-    siap: orders.filter(o => o.status === 'siap').length,
-    selesai: orders.filter(o => o.status === 'selesai').length,
+    semua: ordersList.length,
+    menunggu: ordersList.filter(o => o.status === 'menunggu').length,
+    dimasak: ordersList.filter(o => o.status === 'dimasak').length,
+    siap: ordersList.filter(o => o.status === 'siap').length,
+    selesai: ordersList.filter(o => o.status === 'selesai').length,
   };
 
   return (
@@ -46,7 +90,10 @@ const Orders: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Manajemen Pesanan</h1>
           <p className="text-gray-600">Kelola semua pesanan restoran</p>
         </div>
-        <button className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200">
+        <button 
+          onClick={() => setIsAddModalOpen(true)}
+          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors duration-200"
+        >
           <Plus className="h-5 w-5 mr-2" />
           Tambah Pesanan
         </button>
@@ -113,6 +160,9 @@ const Orders: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Total
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Aksi
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -152,6 +202,15 @@ const Orders: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{formatCurrency(order.total)}</div>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <button
+                      onClick={() => openEditModal(order)}
+                      className="flex items-center px-3 py-1.5 text-sm bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors duration-200"
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit Status
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -164,6 +223,21 @@ const Orders: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Modals */}
+      <AddOrderModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        availableMenuItems={menuItems}
+        onSave={handleAddOrder}
+      />
+
+      <EditStatusModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        order={selectedOrder}
+        onSave={handleEditStatus}
+      />
     </div>
   );
 };
